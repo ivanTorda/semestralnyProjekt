@@ -10,6 +10,6 @@
 
 #endif /* VRS_CV5_H_ */
 
-
 void UART_init(void);
 void LED_init(void);
+void InitializeTimer(void);

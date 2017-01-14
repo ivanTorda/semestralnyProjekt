@@ -1,5 +1,8 @@
 #include "stm32l1xx_nucleo.h"
 
+
+
+
 /*
  * Inicializacia UARTU, konkretne USART1, vyuzivaju sa
  * piny PA9 a PA10, rychlost 9600 BaudRate/s
@@ -52,5 +55,49 @@ void UART_init(void){
  */
 void LED_init(void) {
 	STM_EVAL_LEDInit(LED2);
+	STM_EVAL_PBInit(BUTTON_USER, BUTTON_MODE_EXTI);
+}
+
+
+/*
+ * Incializacia internych preruseni TIM3 a TIM4 (Timerov)
+ * takze Pouzivame 2 interne prerusenia,
+ * Prvy Timer TIM4 zbehne kazdych 0.5 sekundy (vid TIM.TIM_Period = 500; //ms)
+ * Tento vyuzivame aby kazdu tuto periodu riesila zapis do EEPROM, a vobec cely
+ * meraci proces.
+ * Este tu kontrolujem, ci napatie nekleslo pod nebezpecnu hodnotu.. 10.2V
+ *  Podrobnejsie sa mu budem venovat v main.c -> TIM4_IRQHandler
+ *
+ * Druhy Timer TIM3 zbehne kazdych 50ms (vid TIM.TIM_Period = 50;)
+ * Tu sa riesi samotne vzorkovanie prudu a napatie
+ * napatie sa sice vzorkuje kazdych 50ms ale s prudom je to trosku zlozitejsie..
+ * ale nic hrozne..
+ * slubujem.
+ */
+void InitializeTimer(void) {
+	TIM_TimeBaseInitTypeDef TIM;
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+	// Time base configuration
+	TIM_TimeBaseStructInit(&TIM);
+	TIM.TIM_Prescaler = (SystemCoreClock / 1000) - 1;
+	TIM.TIM_Period = 500; // 500ms interval
+	TIM.TIM_ClockDivision = 0;
+	TIM.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM4, &TIM);
+	TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
+	NVIC_EnableIRQ(TIM4_IRQn); // Enable TIM4 IRQ
+	TIM_Cmd(TIM4, ENABLE); // Enable counter on TIM4
+
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+	// Time base configuration
+	TIM_TimeBaseStructInit(&TIM);
+	TIM.TIM_Prescaler = (SystemCoreClock / 1000) - 1;
+	TIM.TIM_Period = 50; // 50ms interval
+	TIM.TIM_ClockDivision = 0;
+	TIM.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM3, &TIM);
+	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
+	NVIC_EnableIRQ(TIM3_IRQn); // Enable TIM4 IRQ
+	TIM_Cmd(TIM3, ENABLE); // Enable counter on TIM4
 }
 
