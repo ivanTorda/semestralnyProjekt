@@ -1,25 +1,16 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "init.h"
 
-#include "stm32l1xx_flash.h"
-
-#define NUMBER_OF_SAMPLES 10
 #define MAX_STRLEN 12 // this is the maximum string length of our string in characters
 
 char received_string[MAX_STRLEN+1]; // this will hold the recieved string
-
 RCC_ClocksTypeDef RCC_Clocks;
-
-
 int main(void) {
 
 	RCC_GetClocksFreq(&RCC_Clocks);
 	SysTick_Config(RCC_Clocks.HCLK_Frequency / 1000);
 
 	UART_init();
-	LED_init();
-	InitializeTimer();
 	USART_puts("ready\r");
 
 
@@ -27,23 +18,7 @@ int main(void) {
 
 
 	}
-}
 
-
-void TIM4_IRQHandler(void) {
-	if (TIM_GetITStatus(TIM4, TIM_IT_Update) != RESET) {
-
-		
-		TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
-	}
-}
-
-
-void TIM3_IRQHandler(void) {
-	if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET) {
-		
-		TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
-	}
 }
 
 /*
@@ -84,9 +59,7 @@ void USART_puts(volatile char *s) {
 	}
 }
 
-
 void handleUSARTCommands(){
-	char str[10];
 	if (strcmp(received_string, "at\r") == 0) {
 		STM_EVAL_LEDOn(LED2);
 		memset(received_string, '0', sizeof(received_string));
@@ -96,8 +69,6 @@ void handleUSARTCommands(){
 	}
 	
 }
-
-
 
 
 #ifdef  USE_FULL_ASSERT
