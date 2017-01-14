@@ -39,7 +39,6 @@
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-extern uint8_t BlinkSpeed;
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
@@ -142,7 +141,6 @@ void PendSV_Handler(void)
   */
 void SysTick_Handler(void)
 {
-  TimingDelay_Decrement();
 }
 
 /******************************************************************************/
@@ -158,19 +156,6 @@ void SysTick_Handler(void)
   */
 void EXTI15_10_IRQHandler(void)
 {
-  if ((EXTI_GetITStatus(USER_BUTTON_EXTI_LINE) != RESET))
-  {
-    if(BlinkSpeed == 1)
-    {
-      BlinkSpeed = 0;
-    }
-    else
-    {
-      BlinkSpeed ++;
-    }
-    /* Clear the EXTI line pending bit */
-    EXTI_ClearITPendingBit(USER_BUTTON_EXTI_LINE);
-  }	
 }
 /**
   * @brief  This function handles PPP interrupt request.
