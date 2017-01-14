@@ -39,7 +39,8 @@
 void TimingDelay_Decrement(void);
 void Delay(__IO uint32_t nTime);
 char* USART_Handle();
-void handleUSARTCommands();
+float getVoltage(void);
+
 #endif /* __MAIN_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
