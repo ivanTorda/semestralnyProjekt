@@ -4,17 +4,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
 #include "stm32l1xx_flash.h"
+
+#define NUMBER_OF_SAMPLES 10
+#define MAX_STRLEN 12 // this is the maximum string length of our string in characters
+
+char received_string[MAX_STRLEN+1]; // this will hold the recieved string
+uint8_t eeprom[256];
+FLASH_Status FLASHStatus;
+///////////////////////////////////////////////////////////
+//vsetky tieto premenne su nejake stavove premenne, FLAGY,
+//actualCurrent je najnovsia prefiltrovana vzorka prudu
+/////////////////////////////////////////////////////////
+uint16_t currentSamples[NUMBER_OF_SAMPLES];
+uint8_t sampleCounter = 0;
 
 float actualCurrent = 0.00;
 
 float current = 0.00;
 uint16_t voltage = 0.00;
 
+uint32_t eepromCurrentPosition = 0;
 uint8_t currentMeasureTime = 0; //counter for make a sample
 uint8_t voltageMeasureTime = 0;
 uint8_t startMeasureFlag = 0; //start/stop flag for measuring
+uint8_t clearEEPROMFlag = 0; //start/stop flag for measuring
 
 uint8_t measureStatus = 0; //0 - not measuring; 1 - measuring; 2 - stopped measure, EEPROM overflow; 3 - stopped measure low battery;
 uint8_t startRead = 0;
@@ -39,17 +53,6 @@ uint16_t receivedChar;
 RCC_ClocksTypeDef RCC_Clocks;
 
 
-
-/*
- * Hlavna funkcia main, tu sa inicializuju vsetky veci, kazda ta vec je rozpisana v init.c
- *
- * While(1) je nekonecny cyklus, v ktorom sa dokola pytam, ci prijaty znak receivedChar z UARTU nie je
- * pre mna dolezity. Premenna receivedChar sa naplna v preruseni (vid USART1_IRQHandler)
- * Ak je nejaky znak spravny, tak sa podla toho zariad
- * podrobne to opisem pri kazdom IF-e
- *
- * Ak vsetky inicializacie prebehli ok, tak posle na UART 'ready'.
- */
 int main(void) {
 
 	RCC_GetClocksFreq(&RCC_Clocks);
@@ -61,10 +64,13 @@ int main(void) {
 	InitializeTimer();
 	outputPortInit();
 	LED_init();
+	clearEEPROM();
 	USART_puts("ready\r");
+
 	voltageCutOff = lowVoltageCell * numberOfCell;
 
 	memset(currentSamples, 0, NUMBER_OF_SAMPLES);
+
 
 	while (1) {
 
@@ -101,33 +107,28 @@ void TIM4_IRQHandler(void) {
 			if (currentMeasureTime == 0) {
 				GPIO_ResetBits(GPIOA, GPIO_Pin_7);
 				//reset counter if EEPROM is full
+				if (eepromCurrentPosition >= 255) {
+					stopMeasure();
+					measureStatus = 2;
+					GPIO_SetBits(GPIOA, GPIO_Pin_7);
+					TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
+					return;
 				}else{
+					writeEEPROMByte(eepromCurrentPosition,(uint8_t) actualCurrent); //write current into EEPROM
+					eeprom[eepromCurrentPosition]=actualCurrent;
+					eepromCurrentPosition++;
 					measureStatus = 1;
 					GPIO_SetBits(GPIOA, GPIO_Pin_7);
 				}
+			}
 
 			currentMeasureTime++;
 			voltageMeasureTime++;
 		}
-	
 		TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
 	}
 }
 
-/*
- * Interne prerusenie (Timer, Casovac), vykonava sa v pravidelnom intervale (mame v initie nastavenych 50ms)
- * Tu sa riesi aky aktualny prud tecie obvodom (ziarovkou).
- * Cela veda je ta, ze zoberiem 10vzoriek, (aktualneho prudu) a spravim z nich aritmeticky priemer..
- * Je to z toho titulu, ze ten nas odbornik nam dal nevhodny Hallov senzor, (pre prudy +- 12Amperov), kde u nas je max.prud 2Ampere
- * preto nejake desatinky ampera hore dole ten senzor nejak netrapii a dost tie hodnoty potom skacu.. proste no-comment
- *
- * Ked sa spravi 10vzoriek tak sa spravi priemer, prenasobi odcita bulharskymi konstantami a dostaneme prud.
- *
- * Este pripomeniem, ze prerusenie nastava kazdych 50ms lenze ak chcem 10 vzoriek tak potom aktualny prud viem az o 500ms..
- *
- * 50ms je tam preto taka doba, lebo som niekde cital, ze ADC prevodnik mensie intervaly nezvlada (proste vracia cudne hodnoty)
- * ale nie som si tym isty..
- */
 void TIM3_IRQHandler(void) {
 	if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET) {
 		//get 10 samples, save it into array
@@ -215,7 +216,6 @@ void stopMeasure() {
 
 }
 
-
 void handleUSARTCommands(){
 	char str[10];
 	if (strcmp(received_string, "at\r") == 0) {
@@ -254,6 +254,32 @@ void handleUSARTCommands(){
 float getVoltage(void) {
 	return Read_AD_Value(ADC_Channel_1) * 0.0065;
 }
+
+void clearEEPROM() {
+	for (uint16_t j = 0; j < 256; j++) {
+		FLASHStatus = writeEEPROMByte(j, (uint8_t) 0);
+		eeprom[j]=0;
+	}
+	eepromCurrentPosition = 0;
+}
+
+FLASH_Status writeEEPROMByte(uint32_t address, uint8_t data) {
+    FLASH_Status status = FLASH_COMPLETE;
+    address = address + 0x08080000;
+    DATA_EEPROM_Unlock();  //Unprotect the EEPROM to allow writing
+    status = DATA_EEPROM_ProgramByte(address, data);
+    DATA_EEPROM_Lock();  // Reprotect the EEPROM
+    return status;
+}
+
+uint8_t readEEPROMByte(uint32_t address) {
+    uint8_t tmp = 0;
+    address = address + 0x08080000;
+    tmp = *(__IO uint32_t*)address;
+
+    return tmp;
+}
+
 
 #ifdef  USE_FULL_ASSERT
 

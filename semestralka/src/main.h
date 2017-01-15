@@ -39,6 +39,9 @@
 void TimingDelay_Decrement(void);
 void Delay(__IO uint32_t nTime);
 char* USART_Handle();
+uint8_t readEEPROMByte(uint32_t address);
+FLASH_Status writeEEPROMByte(uint32_t address, uint8_t data);
+void clearEEPROM();
 float getVoltage(void);
 #endif /* __MAIN_H */
 
