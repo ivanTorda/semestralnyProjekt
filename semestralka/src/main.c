@@ -53,6 +53,16 @@ uint16_t receivedChar;
 RCC_ClocksTypeDef RCC_Clocks;
 
 
+/*
+ * Hlavna funkcia main, tu sa inicializuju vsetky veci, kazda ta vec je rozpisana v init.c
+ *
+ * While(1) je nekonecny cyklus, v ktorom sa dokola pytam, ci prijaty znak receivedChar z UARTU nie je
+ * pre mna dolezity. Premenna receivedChar sa naplna v preruseni (vid USART1_IRQHandler)
+ * Ak je nejaky znak spravny, tak sa podla toho zariad
+ * podrobne to opisem pri kazdom IF-e
+ *
+ * Ak vsetky inicializacie prebehli ok, tak posle na UART 'ready'.
+ */
 int main(void) {
 
 	RCC_GetClocksFreq(&RCC_Clocks);
@@ -73,7 +83,53 @@ int main(void) {
 
 
 	while (1) {
-
+		char str[10];
+		if (strcmp(received_string, "amp\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				sprintf(str, "%.3f\r", actualCurrent);
+				USART_puts(str);
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
+			if (strcmp(received_string, "volt\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				sprintf(str, "%.3f\r", getVoltage());
+				USART_puts(str);
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
+			if (strcmp(received_string, "ms\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				sprintf(str, "%i\r", measureStatus);
+				USART_puts(str);
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
+			if (strcmp(received_string, "pos\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				sprintf(str, "%i\r", eepromCurrentPosition);
+				USART_puts(str);
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
+			if (strcmp(received_string, "startM\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				startMeasure();
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
+			if (strcmp(received_string, "stopM\r") == 0) {
+				STM_EVAL_LEDOn(LED2);
+				memset(received_string, '0', sizeof(received_string));
+				stopMeasure();
+				STM_EVAL_LEDOff(LED2);
+				continue;
+			}
 
 	}
 }
@@ -84,7 +140,7 @@ void TIM4_IRQHandler(void) {
 		if (startMeasureFlag == 1) {
 
 			//curent time counter reset//29
-			if(currentMeasureTime >= 6){
+			if(currentMeasureTime >= 29){
 				currentMeasureTime=0;
 			}
 
@@ -103,7 +159,7 @@ void TIM4_IRQHandler(void) {
 				voltageMeasureTime = 0;
 			}
 
-			//measure on current every 30seconds
+			//measure on current every 15seconds
 			if (currentMeasureTime == 0) {
 				GPIO_ResetBits(GPIOA, GPIO_Pin_7);
 				//reset counter if EEPROM is full
@@ -218,81 +274,7 @@ void stopMeasure() {
 
 void handleUSARTCommands(){
 	char str[10];
-	if (strcmp(received_string, "at\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		USART_puts("OK\r");
-		STM_EVAL_LEDOff(LED2);
-		return;
-	}
-	if (strcmp(received_string, "amp\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		sprintf(str, "%.3f\r", actualCurrent);
-		USART_puts(str);
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 'v'(Voltage), tak mi hod naspat aktualne napatie baterky, a blikni ledkou..
-	}
-	if (strcmp(received_string, "volt\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		sprintf(str, "%.3f\r", getVoltage());
-		USART_puts(str);
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 'm' (Measure status), tak mi hod naspat stav, ci sa meria/nemeria/kalibruje.. proste aby som vedel
-		//ze ci nieco robi :P
-	}
-	if (strcmp(received_string, "ms\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		sprintf(str, "%i\r", measureStatus);
-		USART_puts(str);
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 'p' (Possition), tak mi hod naspat aktualny stav naplnenia EEPROM. priklad, odosle mi ze
-		// uz som zapisal na 100tu poziciu z 256..
-	}
-	if (strcmp(received_string, "pos\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		sprintf(str, "%i\r", eepromCurrentPosition);
-		USART_puts(str);
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 's' (Start measure), tak spusti meraciu proceduru, zavola sa funkcia startMeasure();
-	}
-	if (strcmp(received_string, "startM\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		startMeasure();
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 'e' (End measure), tak ukonci meraciu proceduru, zavola sa funkcia stopMeasure();
-	}
-	if (strcmp(received_string, "stopM\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		stopMeasure();
-		STM_EVAL_LEDOff(LED2);
-		return;
-	}
-	if (strcmp(received_string, "startC\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		GPIO_ResetBits(GPIOA, GPIO_Pin_6);
-		STM_EVAL_LEDOff(LED2);
-		return;
-		//Ak pride 'e' (End measure), tak ukonci meraciu proceduru, zavola sa funkcia stopMeasure();
-	}
-	if (strcmp(received_string, "stopC\r") == 0) {
-		STM_EVAL_LEDOn(LED2);
-		memset(received_string, '0', sizeof(received_string));
-		GPIO_SetBits(GPIOA, GPIO_Pin_6);
-		STM_EVAL_LEDOff(LED2);
-		return;
-	}
+
 	char src[10];
 	char dest[6];
 	memset(dest, '\0', sizeof(dest));

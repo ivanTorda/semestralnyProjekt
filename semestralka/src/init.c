@@ -112,7 +112,6 @@ void UART_init(void){
  */
 void LED_init(void) {
 	STM_EVAL_LEDInit(LED2);
-	STM_EVAL_PBInit(BUTTON_USER, BUTTON_MODE_EXTI);
 }
 /*
  * Inicializacia portu pre vystup. Pouzivame 2 vystupy.
@@ -138,6 +137,21 @@ void outputPortInit() {
 }
 
 
+/*
+ * Incializacia internych preruseni TIM3 a TIM4 (Timerov)
+ * takze Pouzivame 2 interne prerusenia,
+ * Prvy Timer TIM4 zbehne kazdych 0.5 sekundy (vid TIM.TIM_Period = 500; //ms)
+ * Tento vyuzivame aby kazdu tuto periodu riesila zapis do EEPROM, a vobec cely
+ * meraci proces.
+ * Este tu kontrolujem, ci napatie nekleslo pod nebezpecnu hodnotu.. 10.2V
+ *  Podrobnejsie sa mu budem venovat v main.c -> TIM4_IRQHandler
+ *
+ * Druhy Timer TIM3 zbehne kazdych 50ms (vid TIM.TIM_Period = 50;)
+ * Tu sa riesi samotne vzorkovanie prudu a napatie
+ * napatie sa sice vzorkuje kazdych 50ms ale s prudom je to trosku zlozitejsie..
+ * ale nic hrozne..
+ * slubujem.
+ */
 void InitializeTimer(void) {
 	TIM_TimeBaseInitTypeDef TIM;
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
