@@ -138,7 +138,6 @@ void outputPortInit() {
 }
 
 
-
 void InitializeTimer(void) {
 	TIM_TimeBaseInitTypeDef TIM;
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);

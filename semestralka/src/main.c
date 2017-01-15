@@ -244,6 +244,75 @@ void handleUSARTCommands(){
 		//Ak pride 'm' (Measure status), tak mi hod naspat stav, ci sa meria/nemeria/kalibruje.. proste aby som vedel
 		//ze ci nieco robi :P
 	}
+	if (strcmp(received_string, "ms\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		sprintf(str, "%i\r", measureStatus);
+		USART_puts(str);
+		STM_EVAL_LEDOff(LED2);
+		return;
+		//Ak pride 'p' (Possition), tak mi hod naspat aktualny stav naplnenia EEPROM. priklad, odosle mi ze
+		// uz som zapisal na 100tu poziciu z 256..
+	}
+	if (strcmp(received_string, "pos\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		sprintf(str, "%i\r", eepromCurrentPosition);
+		USART_puts(str);
+		STM_EVAL_LEDOff(LED2);
+		return;
+		//Ak pride 's' (Start measure), tak spusti meraciu proceduru, zavola sa funkcia startMeasure();
+	}
+	if (strcmp(received_string, "startM\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		startMeasure();
+		STM_EVAL_LEDOff(LED2);
+		return;
+		//Ak pride 'e' (End measure), tak ukonci meraciu proceduru, zavola sa funkcia stopMeasure();
+	}
+	if (strcmp(received_string, "stopM\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		stopMeasure();
+		STM_EVAL_LEDOff(LED2);
+		return;
+	}
+	if (strcmp(received_string, "startC\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		GPIO_ResetBits(GPIOA, GPIO_Pin_6);
+		STM_EVAL_LEDOff(LED2);
+		return;
+		//Ak pride 'e' (End measure), tak ukonci meraciu proceduru, zavola sa funkcia stopMeasure();
+	}
+	if (strcmp(received_string, "stopC\r") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		memset(received_string, '0', sizeof(received_string));
+		GPIO_SetBits(GPIOA, GPIO_Pin_6);
+		STM_EVAL_LEDOff(LED2);
+		return;
+	}
+	char src[10];
+	char dest[6];
+	memset(dest, '\0', sizeof(dest));
+	strcpy(src, received_string);
+	strncpy(dest, src, 4);
+	if (strcmp(dest, "read") == 0) {
+		STM_EVAL_LEDOn(LED2);
+		char subbuff[6];
+		memcpy(subbuff, &received_string[4], 6);
+		subbuff[5] = '\0';
+		char s[5];
+		strcpy(s, replace(subbuff, '\r', '\0'));
+		u_int8_t value = 0;
+		value = atoi(s);
+		sprintf(str, "%i\r", eeprom[value]);
+		USART_puts(str);
+		memset(received_string, '0', sizeof(received_string));
+		STM_EVAL_LEDOff(LED2);
+		return;
+	}
 }
 
 
@@ -280,6 +349,26 @@ uint8_t readEEPROMByte(uint32_t address) {
     return tmp;
 }
 
+char *replace(const char *s, char ch, const char *repl) {
+    int count = 0;
+    const char *t;
+    for(t=s; *t; t++)
+        count += (*t == ch);
+
+    size_t rlen = strlen(repl);
+    char *res = malloc(strlen(s) + (rlen-1)*count + 1);
+    char *ptr = res;
+    for(t=s; *t; t++) {
+        if(*t == ch) {
+            memcpy(ptr, repl, rlen);
+            ptr += rlen;
+        } else {
+            *ptr++ = *t;
+        }
+    }
+    *ptr = 0;
+    return res;
+}
 
 #ifdef  USE_FULL_ASSERT
 
