@@ -5,18 +5,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-
-#define NUMBER_OF_SAMPLES 10
-#define MAX_STRLEN 12 // this is the maximum string length of our string in characters
-
-char received_string[MAX_STRLEN+1]; // this will hold the recieved string
-FLASH_Status FLASHStatus;
-///////////////////////////////////////////////////////////
-//vsetky tieto premenne su nejake stavove premenne, FLAGY,
-//actualCurrent je najnovsia prefiltrovana vzorka prudu
-/////////////////////////////////////////////////////////
-uint16_t currentSamples[NUMBER_OF_SAMPLES];
-uint8_t sampleCounter = 0;
+#include "stm32l1xx_flash.h"
 
 float actualCurrent = 0.00;
 
@@ -50,6 +39,7 @@ uint16_t receivedChar;
 RCC_ClocksTypeDef RCC_Clocks;
 
 
+
 /*
  * Hlavna funkcia main, tu sa inicializuju vsetky veci, kazda ta vec je rozpisana v init.c
  *
@@ -72,11 +62,9 @@ int main(void) {
 	outputPortInit();
 	LED_init();
 	USART_puts("ready\r");
-
 	voltageCutOff = lowVoltageCell * numberOfCell;
 
 	memset(currentSamples, 0, NUMBER_OF_SAMPLES);
-
 
 	while (1) {
 
@@ -121,6 +109,7 @@ void TIM4_IRQHandler(void) {
 			currentMeasureTime++;
 			voltageMeasureTime++;
 		}
+	
 		TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
 	}
 }
@@ -226,6 +215,7 @@ void stopMeasure() {
 
 }
 
+
 void handleUSARTCommands(){
 	char str[10];
 	if (strcmp(received_string, "at\r") == 0) {
@@ -263,28 +253,6 @@ void handleUSARTCommands(){
  */
 float getVoltage(void) {
 	return Read_AD_Value(ADC_Channel_1) * 0.0065;
-}
-
-
-char *replace(const char *s, char ch, const char *repl) {
-    int count = 0;
-    const char *t;
-    for(t=s; *t; t++)
-        count += (*t == ch);
-
-    size_t rlen = strlen(repl);
-    char *res = malloc(strlen(s) + (rlen-1)*count + 1);
-    char *ptr = res;
-    for(t=s; *t; t++) {
-        if(*t == ch) {
-            memcpy(ptr, repl, rlen);
-            ptr += rlen;
-        } else {
-            *ptr++ = *t;
-        }
-    }
-    *ptr = 0;
-    return res;
 }
 
 #ifdef  USE_FULL_ASSERT
