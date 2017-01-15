@@ -1,7 +1,64 @@
 #include "stm32l1xx_nucleo.h"
 
+/*
+ * Inicializiacia ADC prevodnika, pre meranie napatia baterky a pretekajuceho prudu.
+ * Vyziva sa konkretne ADC1 prevodnik, a z neho 2 kanaly.
+ * Fyzicky su to porty PA0 PA1
+ */
+void adc_init(void) {
+	GPIO_InitTypeDef GPIO_InitStructure;
+	ADC_InitTypeDef ADC_InitStructure;
+	/* Enable GPIO clock */
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+	/* Configure ADCx Channel 2 as analog input */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 
+	/* Enable the HSI oscillator */
+	RCC_HSICmd(ENABLE);
+
+	/* Check that HSI oscillator is ready */
+	while(RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
+
+	/* Enable ADC clock */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+
+	/* Initialize ADC structure */
+	ADC_StructInit(&ADC_InitStructure);
+
+	/* ADC1 configuration */
+	ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
+	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
+	ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
+	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+	ADC_InitStructure.ADC_NbrOfConversion = 1;
+	ADC_Init(ADC1, &ADC_InitStructure);
+
+	/* Enable the ADC */
+	ADC_Cmd(ADC1, ENABLE);
+
+}
+
+/*
+ * Nie som si isty ci toto potrebujeme, mala by to byt inicializacia
+ * prerusenia (IRQ) pre ADC1 prevodnik. To znamena ze v pravidelnom intervale si ADC1 prevodnik
+ * vynuti prerusenie a hodi hodnotu do premennej.
+ * Lenze my dostavame data vlastnym internym prerusenim.
+ * Proste si to sami vzorkujeme v pravidelnom intervale
+ */
+void NVICInit(void) {
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+	NVIC_InitTypeDef NVIC_InitStructure;
+	NVIC_InitStructure.NVIC_IRQChannel = ADC1_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+}
 
 /*
  * Inicializacia UARTU, konkretne USART1, vyuzivaju sa
@@ -57,6 +114,28 @@ void LED_init(void) {
 	STM_EVAL_LEDInit(LED2);
 	STM_EVAL_PBInit(BUTTON_USER, BUTTON_MODE_EXTI);
 }
+/*
+ * Inicializacia portu pre vystup. Pouzivame 2 vystupy.
+ * Prvy je dolezity PA7, ten spina rele a rele zase celkovu zataz (ziarovku)
+ *
+ * Druha je PA6, to je len taka notifikacna LEDka.. blikne pri kazdom merani..
+ */
+void outputPortInit() {
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+	GPIO_InitTypeDef gpioInitStruct;
+	gpioInitStruct.GPIO_Mode = GPIO_Mode_OUT;
+	gpioInitStruct.GPIO_OType = GPIO_OType_PP;
+	gpioInitStruct.GPIO_Pin = GPIO_Pin_6;
+	gpioInitStruct.GPIO_Speed = GPIO_Speed_40MHz;
+	GPIO_Init(GPIOA, &gpioInitStruct);
+	GPIO_SetBits(GPIOA, GPIO_Pin_6);
+	gpioInitStruct.GPIO_Mode = GPIO_Mode_OUT;
+	gpioInitStruct.GPIO_OType = GPIO_OType_PP;
+	gpioInitStruct.GPIO_Pin = GPIO_Pin_7;
+	gpioInitStruct.GPIO_Speed = GPIO_Speed_40MHz;
+	GPIO_Init(GPIOA, &gpioInitStruct);
+	GPIO_SetBits(GPIOA, GPIO_Pin_7);
+}
 
 
 /*
@@ -100,4 +179,25 @@ void InitializeTimer(void) {
 	NVIC_EnableIRQ(TIM3_IRQn); // Enable TIM4 IRQ
 	TIM_Cmd(TIM3, ENABLE); // Enable counter on TIM4
 }
+/*
+ * Tato funkcia by tu nemala byt, pretoze sa tu nic neinicializuje..
+ *
+ * Je to funkcia ktora vrati hodnotu ADC (napatie/prud).
+ * Ak chcem napatie tak hodim do parametra ADC_Channel_1
+ * Ak chcem prud tak ADC_Channel_0
+ *
+ */
+uint16_t Read_AD_Value(uint8_t channel) {
 
+	ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_16Cycles);
+
+	/* Start ADC Software Conversion */
+	ADC_SoftwareStartConv(ADC1);
+
+	/* Wait till done */
+	while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC)) {
+	}
+
+	return ADC_GetConversionValue(ADC1);
+
+}
