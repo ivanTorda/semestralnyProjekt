@@ -10,7 +10,6 @@
 #define MAX_STRLEN 12 // this is the maximum string length of our string in characters
 
 char received_string[MAX_STRLEN+1]; // this will hold the recieved string
-uint8_t eeprom[256];
 FLASH_Status FLASHStatus;
 ///////////////////////////////////////////////////////////
 //vsetky tieto premenne su nejake stavove premenne, FLAGY,
@@ -171,8 +170,6 @@ void TIM4_IRQHandler(void) {
 					return;
 				}else{
 					writeEEPROMByte(eepromCurrentPosition,(uint8_t) actualCurrent); //write current into EEPROM
-					eeprom[eepromCurrentPosition]=actualCurrent;
-					eepromCurrentPosition++;
 					measureStatus = 1;
 					GPIO_SetBits(GPIOA, GPIO_Pin_7);
 				}
@@ -289,7 +286,7 @@ void handleUSARTCommands(){
 		strcpy(s, replace(subbuff, '\r', '\0'));
 		u_int8_t value = 0;
 		value = atoi(s);
-		sprintf(str, "%i\r", eeprom[value]);
+		sprintf(str, "%i\r", readEEPROMByte(value));
 		USART_puts(str);
 		memset(received_string, '0', sizeof(received_string));
 		STM_EVAL_LEDOff(LED2);
@@ -309,7 +306,6 @@ float getVoltage(void) {
 void clearEEPROM() {
 	for (uint16_t j = 0; j < 256; j++) {
 		FLASHStatus = writeEEPROMByte(j, (uint8_t) 0);
-		eeprom[j]=0;
 	}
 	eepromCurrentPosition = 0;
 }
